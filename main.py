@@ -158,6 +158,7 @@ class TimerApp(QMainWindow):
         
         self.time_remaining = 0
         self.timer_running = False
+        self.is_paused = False
         
         # Set up media player for custom sound
         self.player = QMediaPlayer()
@@ -200,24 +201,34 @@ class TimerApp(QMainWindow):
             seconds = dialog.seconds_spin.value()
             self.time_remaining = hours * 3600 + minutes * 60 + seconds
             self.updateDisplay()
+            self.time_display.setStyleSheet("color: white;")
+            self.is_paused = False
             
     def startTimer(self):
         if not self.timer_running and self.time_remaining > 0:
             self.timer.start(1000)
             self.timer_running = True
             self.start_button.setEnabled(False)
+            self.pause_button.setEnabled(True)
+            self.is_paused = False
+            self.time_display.setStyleSheet("color: white;")
             
     def pauseTimer(self):
         if self.timer_running:
             self.timer.stop()
             self.timer_running = False
             self.start_button.setEnabled(True)
+            self.is_paused = True
+            self.time_display.setStyleSheet("color: red;")
+        elif self.time_remaining > 0 and not self.timer_running:
+            self.startTimer()
             
     def resetTimer(self):
         # Stop all timers
         self.timer.stop()
         self.flash_timer.stop()
         self.timer_running = False
+        self.is_paused = False
         
         # Reset display color
         self.time_display.setStyleSheet("color: white;")
@@ -230,6 +241,7 @@ class TimerApp(QMainWindow):
         self.time_remaining = 0
         self.updateDisplay()
         self.start_button.setEnabled(True)
+        self.pause_button.setEnabled(True)
         
     def updateTimer(self):
         if self.time_remaining > 0:
