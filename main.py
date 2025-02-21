@@ -3,17 +3,62 @@ import time
 from pathlib import Path
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QLabel, 
                            QVBoxLayout, QHBoxLayout, QWidget, QMenu, QMenuBar,
-                           QAction, QInputDialog)
-from PyQt5.QtCore import QTimer, Qt
+                           QAction, QInputDialog, QDialog, QSpinBox, QFormLayout,
+                           QMessageBox)
+from PyQt5.QtCore import QTimer, Qt, QUrl
 from PyQt5.QtGui import QFont
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
-from PyQt5.QtCore import QUrl
+import platform
+
+class TimeInputDialog(QDialog):
+    # [Previous TimeInputDialog code remains exactly the same]
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Set Timer')
+        self.setStyleSheet("""
+            QDialog {
+                background-color: black;
+            }
+            QLabel {
+                color: white;
+                font-size: 12pt;
+            }
+            QSpinBox {
+                background-color: white;
+                color: black;
+                font-size: 12pt;
+                padding: 5px;
+            }
+        """)
+        
+        layout = QFormLayout(self)
+        
+        self.minutes_spin = QSpinBox()
+        self.minutes_spin.setRange(0, 999)
+        self.seconds_spin = QSpinBox()
+        self.seconds_spin.setRange(0, 59)
+        
+        layout.addRow('Minutes:', self.minutes_spin)
+        layout.addRow('Seconds:', self.seconds_spin)
+        
+        buttons = QHBoxLayout()
+        ok_button = QPushButton('OK')
+        cancel_button = QPushButton('Cancel')
+        ok_button.setStyleSheet("background-color: white; color: black; padding: 5px;")
+        cancel_button.setStyleSheet("background-color: white; color: black; padding: 5px;")
+        
+        ok_button.clicked.connect(self.accept)
+        cancel_button.clicked.connect(self.reject)
+        
+        buttons.addWidget(ok_button)
+        buttons.addWidget(cancel_button)
+        layout.addRow(buttons)
 
 class CircleButton(QPushButton):
+    # [Previous CircleButton code remains exactly the same]
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
         self.setFixedSize(100, 100)
-        # Fixed stylesheet syntax by removing comments and fixing property values
         self.setStyleSheet("""
             QPushButton {
                 background-color: white;
@@ -33,6 +78,7 @@ class TimerApp(QMainWindow):
         self.initUI()
         
     def initUI(self):
+        # [Previous initUI code remains the same until sound setup]
         self.setWindowTitle('Timer')
         self.setStyleSheet("background-color: black;")
         self.setMinimumSize(800, 600)
@@ -43,7 +89,6 @@ class TimerApp(QMainWindow):
         layout.setSpacing(40)
         layout.setContentsMargins(50, 50, 50, 50)
         
-        # Fixed menubar stylesheet
         menubar = QMenuBar()
         menubar.setStyleSheet("""
             QMenuBar {
@@ -58,7 +103,6 @@ class TimerApp(QMainWindow):
         """)
         self.setMenuBar(menubar)
         
-        # Fixed menu stylesheet
         settings_menu = QMenu('☰', self)
         settings_menu.setStyleSheet("""
             QMenu {
@@ -80,14 +124,12 @@ class TimerApp(QMainWindow):
         set_timer_action.triggered.connect(self.setTimer)
         settings_menu.addAction(set_timer_action)
         
-        # Timer display
         self.time_display = QLabel('00:00')
         self.time_display.setAlignment(Qt.AlignCenter)
         self.time_display.setStyleSheet("color: white;")
         self.time_display.setFont(QFont('Arial', 200, QFont.Bold))
         layout.addWidget(self.time_display)
         
-        # Buttons
         button_layout = QHBoxLayout()
         button_layout.setAlignment(Qt.AlignCenter)
         button_layout.setSpacing(50)
@@ -106,22 +148,43 @@ class TimerApp(QMainWindow):
         
         layout.addLayout(button_layout)
         
-        # Timer setup
         self.timer = QTimer()
         self.timer.timeout.connect(self.updateTimer)
         self.time_remaining = 0
         self.timer_running = False
         
-        # Using QMediaPlayer instead of QSound
+        # Set up media player for custom sound
         self.player = QMediaPlayer()
-        sound_file = Path('alarm.wav')
-        self.player.setMedia(QMediaContent(QUrl.fromLocalFile(str(sound_file.absolute()))))
+        self.setupSound()
         
+    def setupSound(self):
+        # Try different sound file formats
+        sound_files = ['alarm.mp3', 'alarm.wav', 'alarm.m4a']
+        found_sound = False
+        
+        for sound_file in sound_files:
+            file_path = Path(sound_file)
+            if file_path.exists():
+                self.player.setMedia(QMediaContent(QUrl.fromLocalFile(str(file_path.absolute()))))
+                print(f"Found sound file: {sound_file}")
+                found_sound = True
+                break
+        
+        if not found_sound:
+            print("No sound file found. Please add an alarm.mp3, alarm.wav, or alarm.m4a file.")
+            
+    def playSound(self):
+        if self.player.media().isNull():
+            self.setupSound()  # Try to find sound file again
+        self.player.setPosition(0)  # Reset to start of audio
+        self.player.play()
+                
     def setTimer(self):
-        minutes, ok = QInputDialog.getInt(self, 'Set Timer', 
-                                        'Enter minutes:', min=0)
-        if ok:
-            self.time_remaining = minutes * 60
+        dialog = TimeInputDialog(self)
+        if dialog.exec_():
+            minutes = dialog.minutes_spin.value()
+            seconds = dialog.seconds_spin.value()
+            self.time_remaining = minutes * 60 + seconds
             self.updateDisplay()
             
     def startTimer(self):
@@ -151,7 +214,7 @@ class TimerApp(QMainWindow):
                 self.timer.stop()
                 self.timer_running = False
                 self.start_button.setEnabled(True)
-                self.player.play()
+                self.playSound()
                 
     def updateDisplay(self):
         minutes = self.time_remaining // 60
